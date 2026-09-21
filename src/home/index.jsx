@@ -14,8 +14,8 @@ function Home() {
 
     const getTasks = async () => {
         try {
-            const taskList = await http.get("http://localhost:3000/api/tasks");
-            setTasks(taskList);
+            const taskList = await http.get("/api/tasks");
+            setTasks(taskList || []);
         } catch (e) {
             console.error(e);
         }
@@ -23,89 +23,95 @@ function Home() {
 
     const handleAddTask = async (e) => {
         e.preventDefault();
-        const newTask = await http.post("http://localhost:3000/api/tasks", {
-            title: title,
-        });
-        setTasks((prev) => [...prev, newTask]);
-        setTitle("");
+        if (!title.trim()) return;
+        try {
+            const newTask = await http.post("/api/tasks", {
+                title: title,
+            });
+            setTasks((prev) => [...prev, newTask]);
+            setTitle("");
+        } catch (e) {
+            console.error(e);
+        }
     };
 
-    const getDetailTask = (id) => {
-        fetch(`http://localhost:3000/api/tasks/${id}`)
-            .then((res) => res.json())
-            .then((data) => setDetailTask(data.data));
+    const getDetailTask = async (id) => {
+        try {
+            const task = await http.get(`/api/tasks/${id}`);
+            setDetailTask(task);
+        } catch (e) {
+            console.error(e);
+        }
     };
 
     const getDelTask = async (id, e) => {
         e.stopPropagation();
-        fetch(`http://localhost:3000/api/tasks/${id}`, { method: "DELETE" })
-            .then((res) => res.json())
-            .then((data) => {
-                setTasks((prev) => prev.filter((task) => task.id !== id));
-            });
-        if (detailTask?.id === id) {
-            setDetailTask(null);
+        try {
+            await http.del(`/api/tasks/${id}`);
+            setTasks((prev) => prev.filter((task) => task.id !== id));
+            if (detailTask?.id === id) {
+                setDetailTask(null);
+            }
+        } catch (e) {
+            console.error(e);
         }
     };
 
     const comletedCount = tasks.filter((task) => task.isCompleted).length;
 
-    const handleToggleTask = (id, e) => {
+    const handleToggleTask = async (id, e) => {
         e.stopPropagation();
         const currentTask = tasks.find((task) => task.id === id);
-        fetch(`http://localhost:3000/api/tasks/${id}`, {
-            method: "PUT",
-
-            body: JSON.stringify({
+        if (!currentTask) return;
+        try {
+            const updatedTask = await http.put(`/api/tasks/${id}`, {
                 isCompleted: !currentTask.isCompleted,
-            }),
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                const updatedTask = data.data || data;
-                setTasks((prev) =>
-                    prev.map((t) => (t.id === id ? updatedTask : t)),
-                );
-                setDetailTask((prev) => (prev?.id === id ? updatedTask : prev));
             });
+            setTasks((prev) =>
+                prev.map((t) => (t.id === id ? updatedTask : t)),
+            );
+            setDetailTask((prev) => (prev?.id === id ? updatedTask : prev));
+        } catch (e) {
+            console.error(e);
+        }
     };
 
-    const handleEditTask = (e) => {
+    const handleEditTask = async (e) => {
         e.preventDefault();
         if (!detailTask) return;
-        fetch(`http://localhost:3000/api/tasks/${detailTask.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
+        try {
+            const updatedTask = await http.put(`/api/tasks/${detailTask.id}`, {
                 title: detailTask.title,
                 isCompleted: Boolean(
                     detailTask.isCompleted ?? detailTask.isComplete,
                 ),
-            }),
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                const updatedTask = data.data || data;
-                setTasks((prev) =>
-                    prev.map((t) => (t.id === detailTask.id ? updatedTask : t)),
-                );
-                setDetailTask(updatedTask);
             });
+            setTasks((prev) =>
+                prev.map((t) => (t.id === detailTask.id ? updatedTask : t)),
+            );
+            setDetailTask(updatedTask);
+        } catch (e) {
+            console.error(e);
+        }
     };
 
-    const url = "https://api-gateway.fullstack.edu.vn/api/analytics";
-
     useEffect(() => {
-        fetch(
-            `http://localhost:3000/bypass-cors?url=${encodeURIComponent(url)}`,
-        )
-            .then((res) => res.json())
-            .then((data) => {
-                console.log(data);
-                setData(data.data.data);
-            })
-
-            .catch((e) => console.error(e));
-    }, [data]);
+        const fetchAnalytics = async () => {
+            try {
+                const analyticsUrl =
+                    "https://api-gateway.fullstack.edu.vn/api/analytics";
+                const res = await http.get(
+                    `/?url=${encodeURIComponent(analyticsUrl)}`,
+                );
+                if (res?.data) {
+                    setData(res.data);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        fetchAnalytics();
+    }, []);
 
     return (
         <div className={styles.container}>
